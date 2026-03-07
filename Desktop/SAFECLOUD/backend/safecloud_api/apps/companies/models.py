@@ -1,4 +1,5 @@
 import uuid
+import pyotp
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.postgres.fields import ArrayField
@@ -93,6 +94,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False, verbose_name='Es Staff')
     is_superuser = models.BooleanField(default=False, verbose_name='Es Superusuario')
     last_login_at = models.DateTimeField(null=True, blank=True, verbose_name='Último Acceso')
+    # 2FA Fields
+    two_factor_enabled = models.BooleanField(default=False, verbose_name='2FA Habilitado')
+    two_factor_method = models.CharField(max_length=20, default='TOTP', choices=[('TOTP', 'TOTP'), ('SMS', 'SMS')], verbose_name='Método 2FA')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Creado')
 
     objects = UserManager()
@@ -118,6 +122,53 @@ class StaffCompany(models.Model):
     class Meta:
         db_table = 'staff_companies'
         unique_together = ('staff_user', 'company')
+
+
+class TwoFactorAuth(models.Model):
+    """Store 2FA secrets and recovery codes for users"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='two_factor_auth')
+    secret_key = models.CharField(max_length=32, verbose_name='Clave Secreta')
+    backup_codes = models.JSONField(default=list, verbose_name='Códigos de Recuperación')
+    is_verified = models.BooleanField(default=False, verbose_name='Verificado')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Creado')
+    last_used_at = models.DateTimeField(null=True, blank=True, verbose_name='Último Uso')
+    
+    class Meta:
+        db_table = 'two_factor_auth'
+        verbose_name = '2FA'
+        verbose_name_plural = '2FAs'
+    
+    def generate_secret(self):
+        """Generate a new TOTP secret"""
+        return pyotp.random_base32()
+    
+    def get_totp(self):
+        """Get TOTP object for this secret"""
+        return pyotp.TOTP(self.secret_key)
+    
+    def verify_token(self, token):
+        """Verify a TOTP token"""
+        totp = self.get_totp()
+        return totp.verify(token)
+    
+    def generate_backup_codes(self, count=10):
+        """Generate backup/recovery codes"""
+        import secrets
+        codes = [secrets.token_hex(4).upper() for _ in range(count)]
+        self.backup_codes = codes
+        return codes
+    
+    def verify_backup_code(self, code):
+        """Verify and consume a backup code"""
+        if code.upper() in self.backup_codes:
+            self.backup_codes.remove(code.upper())
+            self.save()
+            return True
+        return False
+    
+    def __str__(self):
+        return f"2FA - {self.user.email}"
 
 
 class Project(models.Model):

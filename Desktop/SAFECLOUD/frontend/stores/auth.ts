@@ -21,6 +21,7 @@ interface AuthStore {
   setUser: (user: User) => void;
   setTokens: (access: string, refresh: string) => void;
   getCurrentUser: () => Promise<void>;
+  refreshToken: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -143,6 +144,58 @@ export const useAuthStore = create<AuthStore>()(
         } catch (error) {
           console.error('Error fetching current user:', error);
           set({ user: null, isLoading: false });
+        }
+      },
+
+      refreshToken: async () => {
+        try {
+          const refreshToken = useAuthStore.getState().refresh_token ||
+                              (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('auth-store') || '{}').refresh_token : null);
+          
+          if (!refreshToken) {
+            console.error('No refresh token available');
+            return false;
+          }
+
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+          const response = await fetch(`${apiUrl}/auth/token/refresh/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh: refreshToken }),
+          });
+
+          if (!response.ok) {
+            // Si falla el refresh, logout del usuario
+            set({ user: null, access_token: null, refresh_token: null });
+            localStorage.removeItem('auth-store');
+            return false;
+          }
+
+          const data = await response.json();
+          const newAccessToken = data.access;
+          const newRefreshToken = data.refresh || refreshToken;
+
+          set({
+            access_token: newAccessToken,
+            refresh_token: newRefreshToken,
+          });
+
+          if (typeof window !== 'undefined') {
+            const currentState = JSON.parse(localStorage.getItem('auth-store') || '{}');
+            localStorage.setItem('auth-store', JSON.stringify({
+              ...currentState,
+              access_token: newAccessToken,
+              refresh_token: newRefreshToken,
+            }));
+          }
+
+          console.log('✅ Token refreshed successfully');
+          return true;
+        } catch (error) {
+          console.error('Error refreshing token:', error);
+          set({ user: null, access_token: null, refresh_token: null });
+          localStorage.removeItem('auth-store');
+          return false;
         }
       },
     }),

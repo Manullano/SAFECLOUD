@@ -3,6 +3,7 @@ from safecloud_api.apps.companies.models import (
     Plan, Company, User, StaffCompany, Project, Task, Ticket, TicketEvent, 
     Document, DocumentVersion, Comment, AuditEvent, Role, Permission, RolePermission
 )
+from safecloud_api.apps.notifications.models import Notification, NotificationPreference
 
 
 # ============= Plans =============
@@ -220,3 +221,35 @@ class RolePermissionSerializer(serializers.ModelSerializer):
         fields = ['id', 'role', 'role_name', 'permission', 'permission_code', 'created_at']
         read_only_fields = ['id', 'created_at', 'role_name', 'permission_code']
 
+
+# ============= Notifications =============
+class NotificationSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    notification_type_display = serializers.CharField(source='get_notification_type_display', read_only=True)
+    
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'user', 'user_name', 'user_email', 'company', 'notification_type', 
+            'notification_type_display', 'title', 'message', 'email_sent', 'email_status', 
+            'email_error', 'is_read', 'created_at', 'read_at'
+        ]
+        read_only_fields = [
+            'id', 'user', 'company', 'created_at', 'read_at', 'email_sent', 
+            'email_status', 'email_error', 'user_name', 'user_email', 'notification_type_display'
+        ]
+
+
+class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    
+    class Meta:
+        model = NotificationPreference
+        fields = [
+            'id', 'user', 'user_name', 'user_email', 'email_tickets', 'email_documents', 
+            'email_projects', 'email_comments', 'email_security', 'email_system', 
+            'digest_frequency', 'show_in_dashboard', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'user_name', 'user_email']

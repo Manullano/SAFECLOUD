@@ -17,4 +17,5 @@ urlpatterns = [
     path('api/documents/', include('safecloud_api.apps.documents.urls')),
     path('api/tickets/', include('safecloud_api.apps.tickets.urls')),
     path('api/audit/', include('safecloud_api.apps.audit.urls')),
+    path('api/notifications/', include('safecloud_api.apps.notifications.urls')),
 ]

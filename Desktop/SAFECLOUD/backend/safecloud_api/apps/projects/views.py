@@ -137,3 +137,81 @@ class TaskViewSet(viewsets.ModelViewSet):
         )
         
         return Response(TaskSerializer(task).data)
+
+    def update(self, request, *args, **kwargs):
+        task = self.get_object()
+        
+        # Solo el creador puede editar la tarea
+        if task.created_by != request.user:
+            return Response(
+                {'error': 'No tienes permiso para editar esta tarea'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = self.get_serializer(task, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        log_audit_event(
+            actor_user=request.user,
+            action='TASK_UPDATED',
+            company=request.user.company,
+            entity='TASK',
+            entity_id=str(task.id),
+            ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            data={'task_title': serializer.data.get('title')}
+        )
+        
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        task = self.get_object()
+        
+        # Solo el creador puede editar la tarea
+        if task.created_by != request.user:
+            return Response(
+                {'error': 'No tienes permiso para editar esta tarea'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = self.get_serializer(task, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        log_audit_event(
+            actor_user=request.user,
+            action='TASK_UPDATED',
+            company=request.user.company,
+            entity='TASK',
+            entity_id=str(task.id),
+            ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            data={'task_title': serializer.data.get('title')}
+        )
+        
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        task = self.get_object()
+        
+        # Solo el creador puede eliminar la tarea
+        if task.created_by != request.user:
+            return Response(
+                {'error': 'No tienes permiso para eliminar esta tarea'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        log_audit_event(
+            actor_user=request.user,
+            action='TASK_DELETED',
+            company=request.user.company,
+            entity='TASK',
+            entity_id=str(task.id),
+            ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            data={'task_title': task.title}
+        )
+        
+        self.perform_destroy(task)
+        return Response(status=status.HTTP_204_NO_CONTENT)

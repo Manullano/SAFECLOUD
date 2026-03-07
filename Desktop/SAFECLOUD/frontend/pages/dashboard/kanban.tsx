@@ -11,15 +11,13 @@ interface Task {
   description: string;
   status: 'TODO' | 'DOING' | 'DONE';
   priority: 1 | 2 | 3;
-  project?: {
-    id: string;
-    name: string;
-  };
-  assigned_to?: string;
-  assigned_user?: {
-    id: string;
-    full_name: string;
-  };
+  project: string;  // Project UUID
+  project_name?: string;
+  assigned_to?: string | null;  // User UUID
+  assigned_name?: string;
+  created_by?: string;  // User UUID
+  created_by_name?: string;
+  due_at?: string | null;
   created_at: string;
 }
 
@@ -30,19 +28,29 @@ interface Project {
 
 const KanbanBoard = () => {
   const router = useRouter();
-  const { user, isLoading: authLoading, access_token } = useAuth();
+  const { user, isLoading: authLoading, access_token, refreshToken } = useAuth();
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     priority: 2,
     project: '',
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    priority: 2,
+    assigned_to: '',
+    due_at: '',
   });
 
   useEffect(() => {
@@ -77,6 +85,48 @@ const KanbanBoard = () => {
         }),
       ]);
 
+      // Si alguno devuelve 401, refrescar token y reintentar
+      if (tasksRes.status === 401 || projectsRes.status === 401) {
+        console.warn('Token expirado, intentando refrescar...');
+        const refreshSuccess = await refreshToken();
+        
+        if (refreshSuccess) {
+          const newToken = useAuth.getState().access_token;
+          const retryTasks = await fetch(`${apiUrl}/projects/tasks/`, {
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          const retryProjects = await fetch(`${apiUrl}/projects/projects/`, {
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (retryTasks.ok) {
+            const data = await retryTasks.json();
+            const taskList = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+            setTasks(taskList);
+          }
+
+          if (retryProjects.ok) {
+            const data = await retryProjects.json();
+            const projectList = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+            setProjects(projectList);
+            if (projectList.length > 0 && !selectedProject) {
+              setSelectedProject(projectList[0].id);
+            }
+          }
+        } else {
+          router.push('/login');
+        }
+        setLoading(false);
+        return;
+      }
+
       if (tasksRes.ok) {
         const data = await tasksRes.json();
         const taskList = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
@@ -99,7 +149,7 @@ const KanbanBoard = () => {
   };
 
   const filteredTasks = selectedProject 
-    ? tasks.filter(t => t.project?.id === selectedProject)
+    ? tasks.filter(t => t.project === selectedProject)
     : tasks;
 
   const todoTasks = filteredTasks.filter(t => t.status === 'TODO');
@@ -130,6 +180,44 @@ const KanbanBoard = () => {
         }),
       });
 
+      // Si el token expiró (401), intentar refrescar y reintentar
+      if (response.status === 401) {
+        console.warn('❌ Token expirado, intentando refrescar...');
+        const refreshSuccess = await refreshToken();
+        
+        if (refreshSuccess) {
+          console.log('✅ Token refrescado, reintentando...');
+          // Reintentar con el nuevo token
+          const newToken = useAuth.getState().access_token;
+          const retryResponse = await fetch(`${apiUrl}/projects/tasks/`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: formData.title,
+              description: formData.description,
+              status: 'TODO',
+              priority: formData.priority,
+              project: selectedProject || formData.project,
+            }),
+          });
+
+          if (retryResponse.ok) {
+            setFormData({ title: '', description: '', priority: 2, project: '' });
+            setShowCreateModal(false);
+            fetchData();
+            alert('✅ Tarea creada exitosamente');
+            return;
+          }
+        } else {
+          alert('❌ Tu sesión ha expirado. Por favor vuelve a iniciar sesión.');
+          router.push('/login');
+          return;
+        }
+      }
+
       if (response.ok) {
         setFormData({ title: '', description: '', priority: 2, project: '' });
         setShowCreateModal(false);
@@ -149,8 +237,8 @@ const KanbanBoard = () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       
-      const response = await fetch(`${apiUrl}/projects/tasks/${taskId}/`, {
-        method: 'PATCH',
+      const response = await fetch(`${apiUrl}/projects/tasks/${taskId}/change_status/`, {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json',
@@ -158,11 +246,196 @@ const KanbanBoard = () => {
         body: JSON.stringify({ status: newStatus }),
       });
 
+      // Si el token expiró (401), intentar refrescar y reintentar
+      if (response.status === 401) {
+        console.warn('❌ Token expirado, intentando refrescar...');
+        const refreshSuccess = await refreshToken();
+        
+        if (refreshSuccess) {
+          console.log('✅ Token refrescado, reintentando...');
+          // Reintentar con el nuevo token
+          const newToken = useAuth.getState().access_token;
+          const retryResponse = await fetch(`${apiUrl}/projects/tasks/${taskId}/change_status/`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: newStatus }),
+          });
+
+          if (retryResponse.ok) {
+            await fetchData();
+            const statusLabels: {[key: string]: string} = {
+              'TODO': 'Por Hacer',
+              'DOING': 'En Progreso',
+              'DONE': 'Completada'
+            };
+            alert(`✅ Tarea movida a: ${statusLabels[newStatus]}`);
+            return;
+          }
+        } else {
+          alert('❌ Tu sesión ha expirado. Por favor vuelve a iniciar sesión.');
+          router.push('/login');
+          return;
+        }
+      }
+
       if (response.ok) {
-        fetchData();
+        await fetchData();
+        
+        // Mostrar mensaje de éxito
+        const statusLabels: {[key: string]: string} = {
+          'TODO': 'Por Hacer',
+          'DOING': 'En Progreso',
+          'DONE': 'Completada'
+        };
+        alert(`✅ Tarea movida a: ${statusLabels[newStatus]}`);
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error al actualizar tarea: ${errorData.detail || errorData.error || 'Error desconocido'}`);
+        console.error('Error response:', errorData);
       }
     } catch (error) {
       console.error('Error updating task:', error);
+      alert(`❌ Error al actualizar tarea: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditFormData({
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      assigned_to: task.assigned_to || '',
+      due_at: task.due_at || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTask || !editFormData.title.trim()) {
+      alert('El título es requerido');
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      
+      const response = await fetch(`${apiUrl}/projects/tasks/${editingTask.id}/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editFormData.title,
+          description: editFormData.description,
+          priority: editFormData.priority,
+          assigned_to: editFormData.assigned_to || null,
+          due_at: editFormData.due_at || null,
+        }),
+      });
+
+      if (response.status === 401) {
+        const refreshSuccess = await refreshToken();
+        if (refreshSuccess) {
+          const newToken = useAuth.getState().access_token;
+          const retryResponse = await fetch(`${apiUrl}/projects/tasks/${editingTask.id}/`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: editFormData.title,
+              description: editFormData.description,
+              priority: editFormData.priority,
+              assigned_to: editFormData.assigned_to || null,
+              due_at: editFormData.due_at || null,
+            }),
+          });
+
+          if (retryResponse.ok) {
+            setShowEditModal(false);
+            setEditingTask(null);
+            fetchData();
+            alert('✅ Tarea actualizada exitosamente');
+            return;
+          }
+        } else {
+          alert('❌ Tu sesión ha expirado. Por favor vuelve a iniciar sesión.');
+          router.push('/login');
+          return;
+        }
+      }
+
+      if (response.ok) {
+        setShowEditModal(false);
+        setEditingTask(null);
+        fetchData();
+        alert('✅ Tarea actualizada exitosamente');
+      } else {
+        const err = await response.json();
+        alert(`Error: ${err.detail || 'No se pudo actualizar la tarea'}`);
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      alert('Error al actualizar la tarea');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta tarea?')) {
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      
+      const response = await fetch(`${apiUrl}/projects/tasks/${taskId}/`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 401) {
+        const refreshSuccess = await refreshToken();
+        if (refreshSuccess) {
+          const newToken = useAuth.getState().access_token;
+          const retryResponse = await fetch(`${apiUrl}/projects/tasks/${taskId}/`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${newToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (retryResponse.ok || retryResponse.status === 204) {
+            fetchData();
+            alert('✅ Tarea eliminada exitosamente');
+            return;
+          }
+        } else {
+          alert('❌ Tu sesión ha expirado. Por favor vuelve a iniciar sesión.');
+          router.push('/login');
+          return;
+        }
+      }
+
+      if (response.ok || response.status === 204) {
+        fetchData();
+        alert('✅ Tarea eliminada exitosamente');
+      } else {
+        const err = await response.json();
+        alert(`Error: ${err.detail || 'No se pudo eliminar la tarea'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Error al eliminar la tarea');
     }
   };
 
@@ -202,18 +475,18 @@ const KanbanBoard = () => {
       )}
       
       <div className="text-xs text-gray-500 mb-3 space-y-1">
-        {task.project && <p>📁 {task.project.name}</p>}
-        {task.assigned_user && <p>👤 {task.assigned_user.full_name}</p>}
+        {task.project_name && <p>📁 {task.project_name}</p>}
+        {task.assigned_name && <p>👤 {task.assigned_name}</p>}
       </div>
       
-      <div className="flex gap-2">
+      <div className="flex gap-2 mb-2">
         {task.status !== 'TODO' && (
           <Button
             variant="secondary"
             className="text-xs py-1 px-2 flex-1"
             onClick={() => handleStatusChange(task.id, 'TODO')}
           >
-            ↩️ TODO
+            ↩️ Por Hacer
           </Button>
         )}
         {task.status !== 'DOING' && (
@@ -222,7 +495,7 @@ const KanbanBoard = () => {
             className="text-xs py-1 px-2 flex-1"
             onClick={() => handleStatusChange(task.id, 'DOING')}
           >
-            ⏳ DOING
+            ⏳ En Progreso
           </Button>
         )}
         {task.status !== 'DONE' && (
@@ -231,10 +504,29 @@ const KanbanBoard = () => {
             className="text-xs py-1 px-2 flex-1 bg-green-600 hover:bg-green-700"
             onClick={() => handleStatusChange(task.id, 'DONE')}
           >
-            ✅ DONE
+            ✅ Completada
           </Button>
         )}
       </div>
+
+      {user?.id === task.created_by && (
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            className="text-xs py-1 px-3 flex-1"
+            onClick={() => handleEditTask(task)}
+          >
+            ✏️ Editar
+          </Button>
+          <Button
+            variant="secondary"
+            className="text-xs py-1 px-3 flex-1 border-red-200 text-red-600 hover:bg-red-50"
+            onClick={() => handleDeleteTask(task.id)}
+          >
+            🗑️ Eliminar
+          </Button>
+        </div>
+      )}
     </div>
   );
 
@@ -443,6 +735,74 @@ const KanbanBoard = () => {
                 className="flex-1"
               >
                 Crear Tarea
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {showEditModal && editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-semibold text-gray-900">✏️ Editar Tarea</h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Título *</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+                  placeholder="Título de la tarea"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                  placeholder="Detalles adicionales..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Prioridad</label>
+                <select
+                  value={editFormData.priority}
+                  onChange={(e) => setEditFormData({...editFormData, priority: parseInt(e.target.value) as 1 | 2 | 3})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value={1}>🟢 Baja</option>
+                  <option value={2}>🟡 Media</option>
+                  <option value={3}>🔴 Alta</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingTask(null);
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSaveEdit}
+                className="flex-1"
+              >
+                Guardar Cambios
               </Button>
             </div>
           </div>

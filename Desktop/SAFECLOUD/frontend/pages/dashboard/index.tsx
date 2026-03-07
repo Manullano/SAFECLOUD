@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 
 const DashboardPage = () => {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, access_token } = useAuth();
   const { can, role, isSuperAdmin } = useCanAccess();
   const [stats, setStats] = useState({
     projects: 4,
@@ -16,6 +16,8 @@ const DashboardPage = () => {
     users: 6,
   });
   const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   useEffect(() => {
     if (authLoading) {
@@ -35,6 +37,79 @@ const DashboardPage = () => {
     
     setLoading(false);
   }, [user, authLoading, router]);
+
+  // Fetch recent activity from audit events
+  useEffect(() => {
+    if (user && access_token) {
+      fetchRecentActivity();
+    }
+  }, [user, access_token]);
+
+  const getRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Hace unos segundos';
+    if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60);
+      return `Hace ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+    }
+    if (seconds < 86400) {
+      const hours = Math.floor(seconds / 3600);
+      return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+    }
+    if (seconds < 604800) {
+      const days = Math.floor(seconds / 86400);
+      return `Hace ${days} ${days === 1 ? 'día' : 'días'}`;
+    }
+    if (seconds < 2592000) {
+      const weeks = Math.floor(seconds / 604800);
+      return `Hace ${weeks} ${weeks === 1 ? 'semana' : 'semanas'}`;
+    }
+    const months = Math.floor(seconds / 2592000);
+    return `Hace ${months} ${months === 1 ? 'mes' : 'meses'}`;
+  };
+
+  const getActionDescription = (action: string, data?: any): string => {
+    const actionMap: { [key: string]: string } = {
+      'DOCUMENT_CREATED': 'creó un documento',
+      'DOCUMENT_UPDATED': 'actualizó un documento',
+      'DOCUMENT_DELETED': 'eliminó un documento',
+      'TASK_CREATED': 'creó una tarea',
+      'TASK_UPDATED': 'editó una tarea',
+      'TASK_DELETED': 'eliminó una tarea',
+      'TASK_STATUS_CHANGED': 'cambió el estado de una tarea',
+      'PROJECT_CREATED': 'creó un proyecto',
+      'PROJECT_UPDATED': 'actualizó un proyecto',
+      'USER_LOGIN': 'inició sesión',
+      'USER_CREATED': 'creó un usuario',
+      'PERMISSION_CHANGED': 'cambió permisos',
+    };
+    return actionMap[action] || 'realizó una acción';
+  };
+
+  const fetchRecentActivity = async () => {
+    setActivityLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/audit/events/?limit=5', {
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const events = data.results || data || [];
+        setRecentActivity(events.slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   if (authLoading || loading || !user) {
     return (
@@ -185,15 +260,30 @@ const DashboardPage = () => {
 
         <Card title="Actividad Reciente" hoverable>
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 pb-4 border-b last:border-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">Usuario creò un documento</p>
-                  <p className="text-xs text-gray-500">Hace {i} hora</p>
-                </div>
+            {activityLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-            ))}
+            ) : recentActivity && recentActivity.length > 0 ? (
+              recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-center gap-3 pb-4 border-b last:border-0">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-semibold text-blue-700">
+                    {activity.actor_user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {activity.actor_user?.full_name || activity.actor_user?.email || 'Usuario'} {' '}
+                      {getActionDescription(activity.action)}
+                    </p>
+                    <p className="text-xs text-gray-500">{getRelativeTime(activity.timestamp)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No hay actividad reciente</p>
+              </div>
+            )}
           </div>
         </Card>
       </div>

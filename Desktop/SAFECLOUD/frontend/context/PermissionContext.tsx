@@ -46,6 +46,39 @@ export interface PermissionProviderProps {
   children: ReactNode;
 }
 
+// Define permissions by role
+const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  SUPERADMIN: [], // SUPERADMIN has all access (checked separately)
+  STAFF_PM: [
+    'projects.view', 'projects.create', 'projects.edit', 'projects.delete',
+    'tasks.view', 'tasks.create', 'tasks.edit', 'tasks.delete',
+    'documents.view', 'documents.create', 'documents.edit', 'documents.delete', 'documents.download',
+    'tickets.view', 'tickets.create', 'tickets.edit', 'tickets.delete',
+    'comments.view', 'comments.create', 'comments.edit', 'comments.delete',
+    'audit.view',
+  ],
+  STAFF_SUPPORT: [
+    'tickets.view', 'tickets.create', 'tickets.edit', 'tickets.delete',
+    'comments.view', 'comments.create', 'comments.edit', 'comments.delete',
+    'audit.view',
+  ],
+  CLIENT_ADMIN: [
+    'projects.view', 'tasks.view', 'tasks.create', 'tasks.edit',
+    'documents.view', 'documents.create', 'documents.download',
+    'comments.view', 'comments.create', 'comments.edit',
+  ],
+  CLIENT_USER: [
+    'projects.view',
+    'tasks.view', 'tasks.create',
+    'documents.view', 'documents.download',
+    'comments.view', 'comments.create',
+  ],
+  CLIENT_VIEWER: [
+    'projects.view',
+    'documents.view',
+  ],
+};
+
 export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children }) => {
   const { user, isLoading: authLoading } = useAuth();
   const [role, setRole] = useState<UserRole | null>(null);
@@ -59,12 +92,12 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     }
 
     if (user && user.role) {
-      console.log('[PermissionContext] Setting role from auth store:', user.role);
-      setRole(user.role as UserRole);
+      const userRole = user.role as UserRole;
+      console.log('[PermissionContext] Setting role from auth store:', userRole);
+      setRole(userRole);
       
-      // Generar permisos basados en el rol (opcional, por ahora solo usamos el rol)
-      // Los permisos específicos se pueden obtener de una API si es necesario
-      setPermissions([]);
+      // Asignar permisos basados en el rol
+      setPermissions(ROLE_PERMISSIONS[userRole] || []);
     } else {
       setRole(null);
       setPermissions([]);
