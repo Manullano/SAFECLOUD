@@ -6,7 +6,7 @@ from safecloud_api.apps.companies.models import (
 from safecloud_api.apps.notifications.models import Notification, NotificationPreference
 
 
-# ============= Plans =============
+# ============= Planes =============
 class PlanSerializer(serializers.ModelSerializer):
     name_display = serializers.CharField(source='name', read_only=True)
     price = serializers.IntegerField(source='price_clp', read_only=True)
@@ -16,7 +16,7 @@ class PlanSerializer(serializers.ModelSerializer):
         fields = ['id', 'code', 'name', 'name_display', 'price', 'price_clp', 'max_users', 'max_active_projects', 'max_docs', 'max_storage_mb', 'max_tickets_per_month', 'support_sla_hours', 'created_at']
 
 
-# ============= Companies =============
+# ============= Empresas =============
 class CompanySerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='plan.name', read_only=True)
     
@@ -25,7 +25,7 @@ class CompanySerializer(serializers.ModelSerializer):
         fields = ['id', 'plan', 'plan_name', 'rut', 'name', 'industry', 'email', 'phone', 'status', 'created_at']
 
 
-# ============= Users =============
+# ============= Usuarios =============
 class UserSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source='company.name', read_only=True)
     password = serializers.CharField(write_only=True, required=False)
@@ -36,8 +36,8 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'last_login_at', 'company_name']
 
     def validate_email(self, value):
-        """Validate that email is unique"""
-        # Check if email already exists (case-insensitive)
+        """Validar que el email sea único"""
+        # Verificar si el email ya existe (insensible a mayúsculas)
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Este email ya está registrado en el sistema.")
         return value
@@ -61,7 +61,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(UserSerializer):
-    company = CompanySerializer(read_only=True)
+    company = serializers.SerializerMethodField()
+    company_detail = CompanySerializer(source='company', read_only=True)
+    
+    def get_company(self, obj):
+        """Return company UUID as string"""
+        return str(obj.company.id) if obj.company else None
+    
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['company_detail']
 
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -70,7 +78,7 @@ class UserListSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'email', 'role', 'is_active', 'created_at']
 
 
-# ============= Projects =============
+# ============= Proyectos =============
 class ProjectSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source='owner_user.full_name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
@@ -83,7 +91,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'company_name', 'owner_name', 'created_by_name']
 
 
-# ============= Tasks =============
+# ============= Tareas =============
 class TaskSerializer(serializers.ModelSerializer):
     assigned_name = serializers.CharField(source='assigned_to.full_name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
@@ -132,7 +140,7 @@ class TicketSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by_name', 'assigned_to_name', 'company_name', 'project_name']
 
 
-# ============= Documents =============
+# ============= Documentos =============
 class DocumentVersionSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.CharField(source='uploaded_by.full_name', read_only=True)
     
@@ -156,7 +164,7 @@ class DocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'created_by_name', 'company_name', 'project_name']
 
 
-# ============= Comments =============
+# ============= Comentarios =============
 class CommentSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
     company_name = serializers.CharField(source='company.name', read_only=True)
@@ -178,7 +186,7 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'created_by_name', 'company_name', 'user']
 
 
-# ============= Audit =============
+# ============= Auditoría =============
 class AuditEventSerializer(serializers.ModelSerializer):
     actor_user_name = serializers.CharField(source='actor_user.full_name', read_only=True)
     company_name = serializers.CharField(source='company.name', read_only=True)
@@ -191,7 +199,7 @@ class AuditEventSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'ip']
 
 
-# ============= RBAC =============
+# ============= RBAC (Control de Acceso Basado en Roles) =============
 class PermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Permission
@@ -222,7 +230,7 @@ class RolePermissionSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'role_name', 'permission_code']
 
 
-# ============= Notifications =============
+# ============= Notificaciones =============
 class NotificationSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)

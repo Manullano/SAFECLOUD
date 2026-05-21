@@ -16,7 +16,7 @@ const Navbar = () => {
     router.push('/login');
   };
 
-  // Build navigation based on role
+  // Construir navegación basada en el rol
   const getNavLinks = () => {
     if (!user) return [];
 
@@ -62,7 +62,7 @@ const Navbar = () => {
   const navLinks = [
     ...getNavLinks(),
     ...(isSuperAdmin ? [
-      { name: '📊 Analytics', href: '/dashboard/analytics' },
+      { name: '📊 Análisis', href: '/dashboard/analytics' },
       { name: '🔎 Auditoría', href: '/dashboard/audit/trail' },
       { name: '⚙️ Administración', href: '/dashboard/settings' },
     ] : []),
@@ -99,16 +99,6 @@ const Navbar = () => {
             {user ? (
               <>
                 <NotificationCenter />
-
-                <button
-                  onClick={() => router.push('/dashboard/tickets')}
-                  className="hidden sm:flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Crear Ticket
-                </button>
 
                 <div className="flex items-center gap-3 pl-4 border-l border-gray-300">
                   <div className="hidden sm:block text-right">
@@ -181,15 +171,6 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
-            <button
-              onClick={() => router.push('/dashboard/tickets')}
-              className="w-full flex items-center gap-2 px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Crear Ticket
-            </button>
             <button
               onClick={() => {
                 handleLogout();

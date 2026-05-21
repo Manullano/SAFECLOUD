@@ -58,7 +58,7 @@ const StaffTicketsDashboard = () => {
   const [kpis, setKpis] = useState<KPI>({ open: 0, critical: 0, sla_warning: 0, waiting_customer: 0 });
   const [loading, setLoading] = useState(true);
   
-  // Filter & Modal states
+  // Filtros y estados del Modal
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -70,7 +70,7 @@ const StaffTicketsDashboard = () => {
   useEffect(() => {
     if (authLoading || !user || !access_token) return;
     
-    // Only STAFF_SUPPORT can access this (or SUPERADMIN)
+    // Solo STAFF_SUPPORT puede acceder (o SUPERADMIN)
     if (!user.role || (!user.role.includes('STAFF') && !isSuperAdmin)) {
       router.push('/dashboard');
       return;
@@ -97,7 +97,7 @@ const StaffTicketsDashboard = () => {
         setTickets(ticketList);
         calculateKPIs(ticketList);
         
-        // Fetch comments for each ticket
+        // Obtener comentarios para cada ticket
         await fetchAllComments(ticketList);
       }
     } catch (error) {
@@ -113,7 +113,7 @@ const StaffTicketsDashboard = () => {
     for (const ticket of ticketList) {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-        // Use the nested comments endpoint on the ticket
+        // Usar el endpoint anidado de comentarios en el ticket
         const response = await fetch(`${apiUrl}/tickets/tickets/${ticket.id}/comments/`, {
           headers: {
             Authorization: `Bearer ${access_token}`,
@@ -126,7 +126,7 @@ const StaffTicketsDashboard = () => {
           allComments[ticket.id] = Array.isArray(data) ? data : (data.results ? data.results : []);
         }
       } catch (error) {
-        console.error(`Error fetching comments for ticket ${ticket.id}:`, error);
+        console.error(`Error al obtener comentarios del ticket ${ticket.id}:`, error);
       }
     }
     
@@ -139,7 +139,7 @@ const StaffTicketsDashboard = () => {
     const criticalCount = ticketList.filter(t => t.priority === 'CRITICAL' && t.status !== 'CLOSED').length;
     const waitingCount = ticketList.filter(t => t.status === 'WAITING_CUSTOMER').length;
     
-    // SLA warning: tickets with due_date within 4 hours
+    // Advertencia SLA: tickets con fecha de vencimiento dentro de 4 horas
     const slaWarningCount = ticketList.filter(ticket => {
       if (!ticket.due_date || ticket.status === 'CLOSED' || ticket.status === 'RESOLVED') return false;
       const dueDate = new Date(ticket.due_date);
@@ -235,7 +235,7 @@ const StaffTicketsDashboard = () => {
       setCommentLoading(true);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       
-      // Use the add_comment action endpoint on the ticket
+      // Usar el endpoint de acción add_comment en el ticket
       const response = await fetch(`${apiUrl}/tickets/tickets/${selectedTicket.id}/add_comment/`, {
         method: 'POST',
         headers: {
@@ -251,7 +251,7 @@ const StaffTicketsDashboard = () => {
       if (response.ok) {
         setNewComment('');
         setIsInternalComment(false);
-        // Refresh comments by re-fetching for this ticket
+        // Actualizar comentarios re-obteniendo para este ticket
         const apiUrl2 = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
         const commentsResponse = await fetch(
           `${apiUrl2}/tickets/tickets/${selectedTicket.id}/comments/`,

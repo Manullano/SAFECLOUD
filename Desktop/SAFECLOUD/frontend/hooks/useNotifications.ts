@@ -28,19 +28,19 @@ export const useNotifications = (): UseNotificationsReturn => {
   const notificationStoreRef = useRef<Map<string, Notification>>(new Map());
   const listenersRef = useRef<Set<(notifications: Notification[]) => void>>(new Set());
 
-  // Subscribe to notifications
+  // Suscribirse a notificaciones
   const subscribe = useCallback((callback: (notifications: Notification[]) => void) => {
     listenersRef.current.add(callback);
     return () => listenersRef.current.delete(callback);
   }, []);
 
-  // Notify all listeners
+  // Notificar a todos los escuchadores
   const notifyListeners = useCallback(() => {
     const notifications = Array.from(notificationStoreRef.current.values());
     listenersRef.current.forEach((listener) => listener(notifications));
   }, []);
 
-  // Connect to WebSocket
+  // Conectar a WebSocket
   useEffect(() => {
     if (!user || !access_token) return;
 
@@ -51,7 +51,7 @@ export const useNotifications = (): UseNotificationsReturn => {
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected for notifications');
+        console.log('✅ WebSocket conectado para notificaciones');
       };
 
       ws.onmessage = (event) => {
@@ -77,11 +77,11 @@ export const useNotifications = (): UseNotificationsReturn => {
       };
 
       ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        console.error('❌ Error de WebSocket:', error);
       };
 
       ws.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
+        console.log('🔌 WebSocket desconectado');
       };
 
       wsRef.current = ws;
@@ -92,7 +92,7 @@ export const useNotifications = (): UseNotificationsReturn => {
         }
       };
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
+      console.error('Error creando WebSocket:', error);
     }
   }, [user, access_token, notifyListeners]);
 

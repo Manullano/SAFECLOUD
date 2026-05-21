@@ -55,7 +55,7 @@ const StaffProjectsDashboard = () => {
   const { user, isLoading: authLoading, access_token } = useAuth();
   const { canCreate, canEdit, canDelete } = useCanAccess();
 
-  // State Management
+  // Manejo de Estado
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -64,19 +64,19 @@ const StaffProjectsDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // UI State
+  // Estado UI
   const [activeTab, setActiveTab] = useState<'projects' | 'tasks' | 'tickets' | 'documents'>('projects');
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Filter State
+  // Estado de Filtros
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [taskFilter, setTaskFilter] = useState<string>('ALL');
   const [ticketFilter, setTicketFilter] = useState<string>('ALL');
 
-  // Form Data
+  // Datos del Formulario
   const [projectFormData, setProjectFormData] = useState({
     name: '',
     description: '',
@@ -94,11 +94,11 @@ const StaffProjectsDashboard = () => {
     due_date: '',
   });
 
-  // Auth Check
+  // Verificación de Autenticación
   useEffect(() => {
     if (authLoading || !user) return;
     
-    // Check if user is STAFF_PM
+    // Comprobar si el usuario es STAFF_PM
     if (user.role !== 'STAFF_PM') {
       router.push('/dashboard');
       return;
@@ -114,7 +114,7 @@ const StaffProjectsDashboard = () => {
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       
-      // Fetch projects
+      // Obtener proyectos
       const projectsRes = await fetch(`${apiUrl}/projects/`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -122,7 +122,7 @@ const StaffProjectsDashboard = () => {
         },
       });
 
-      // Fetch tasks
+      // Obtener tareas
       const tasksRes = await fetch(`${apiUrl}/tasks/`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -130,7 +130,7 @@ const StaffProjectsDashboard = () => {
         },
       });
 
-      // Fetch tickets
+      // Obtener tickets
       const ticketsRes = await fetch(`${apiUrl}/tickets/`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -138,7 +138,7 @@ const StaffProjectsDashboard = () => {
         },
       });
 
-      // Fetch documents
+      // Obtener documentos
       const docsRes = await fetch(`${apiUrl}/documents/`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -166,14 +166,14 @@ const StaffProjectsDashboard = () => {
         setDocuments(data.results || (Array.isArray(data) ? data : []));
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error al obtener datos:', error);
       setError('Error al cargar datos');
     } finally {
       setLoading(false);
     }
   };
 
-  // Project Management
+  // Gestión de Proyectos
   const handleSaveProject = async () => {
     if (!projectFormData.name.trim()) {
       setError('El nombre del proyecto es requerido');

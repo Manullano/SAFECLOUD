@@ -1,6 +1,6 @@
 /**
- * Permission Context for RBAC
- * Provides role-based access control information to React components
+ * Contexto de Permisos para RBAC
+ * Proporciona información de control de acceso basado en roles a componentes React
  */
 import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '@/stores/auth';
@@ -15,7 +15,7 @@ export interface PermissionContextType {
   canAccessModule: (module: string) => boolean;
 }
 
-// Module names
+// Nombres de módulos
 export const MODULES = {
   AUTH: 'AUTH',
   COMPANIES: 'COMPANIES',
@@ -29,7 +29,7 @@ export const MODULES = {
   SETTINGS: 'SETTINGS',
 } as const;
 
-// Actions
+// Acciones
 export const ACTIONS = {
   VIEW: 'VIEW',
   CREATE: 'CREATE',
@@ -46,9 +46,9 @@ export interface PermissionProviderProps {
   children: ReactNode;
 }
 
-// Define permissions by role
+// Definir permisos por rol
 const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  SUPERADMIN: [], // SUPERADMIN has all access (checked separately)
+  SUPERADMIN: [], // SUPERADMIN tiene acceso total (verificado por separado)
   STAFF_PM: [
     'projects.view', 'projects.create', 'projects.edit', 'projects.delete',
     'tasks.view', 'tasks.create', 'tasks.edit', 'tasks.delete',
@@ -65,12 +65,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   CLIENT_ADMIN: [
     'projects.view', 'tasks.view', 'tasks.create', 'tasks.edit',
     'documents.view', 'documents.create', 'documents.download',
+    'tickets.view', 'tickets.create',
     'comments.view', 'comments.create', 'comments.edit',
   ],
   CLIENT_USER: [
     'projects.view',
     'tasks.view', 'tasks.create',
     'documents.view', 'documents.download',
+    'tickets.view', 'tickets.create',
     'comments.view', 'comments.create',
   ],
   CLIENT_VIEWER: [
@@ -86,14 +88,14 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Obtener el rol del usuario desde el store de autenticación
+    // Obtener el rol del usuario del store de autenticación
     if (authLoading) {
       return;
     }
 
     if (user && user.role) {
       const userRole = user.role as UserRole;
-      console.log('[PermissionContext] Setting role from auth store:', userRole);
+      console.log('[PermissionContext] Estableciendo rol del store de auth:', userRole);
       setRole(userRole);
       
       // Asignar permisos basados en el rol
@@ -109,7 +111,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const canAccess = (module: string, action: string): boolean => {
     if (!role) return false;
 
-    // SUPERADMIN has access to everything
+    // SUPERADMIN tiene acceso a todo
     if (role === 'SUPERADMIN') return true;
 
     const permissionCode = `${module.toLowerCase()}.${action.toLowerCase()}`;
@@ -119,10 +121,10 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
   const canAccessModule = (module: string): boolean => {
     if (!role) return false;
 
-    // SUPERADMIN has access to everything
+    // SUPERADMIN tiene acceso a todo
     if (role === 'SUPERADMIN') return true;
 
-    // Check if user has any permission in this module
+    // Comprobar si el usuario tiene algún permiso en este módulo
     const modulePrefix = module.toLowerCase();
     return permissions.some((perm) => perm.startsWith(modulePrefix));
   };

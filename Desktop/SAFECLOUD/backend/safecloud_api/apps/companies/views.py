@@ -99,6 +99,13 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsCompanyAdmin]
     
+    def get_permissions(self):
+        """Override permissions for specific actions"""
+        if self.action == 'staff':
+            # Solo requerir autenticación para la acción 'staff'
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
     def get_queryset(self):
         user = self.request.user
         if user.role == 'SUPERADMIN':
@@ -173,6 +180,27 @@ class UserViewSet(viewsets.ModelViewSet):
             data={'deactivated_user_id': str(user.id)}
         )
         return Response(UserSerializer(user).data)
+
+    @action(detail=False, methods=['get'])
+    def staff(self, request):
+        """Get only STAFF_PM and STAFF_SUPPORT users - accessible to all authenticated users"""
+        # Para simplificar, devolver STAFF de todas las empresas
+        # o preferiblemente de la empresa del usuario
+        user = request.user
+        
+        if not user.company:
+            # Si el usuario no tiene empresa, devolver cualquier STAFF disponible
+            staff_users = User.objects.filter(role__in=['STAFF_PM', 'STAFF_SUPPORT']).select_related('company')
+        else:
+            # Si tiene empresa, priorizar STAFF de su propia empresa
+            # pero también incluir STAFF global si no hay en su empresa
+            staff_users = User.objects.filter(
+                Q(company=user.company) | Q(company__isnull=False),
+                role__in=['STAFF_PM', 'STAFF_SUPPORT']
+            ).select_related('company').distinct()
+        
+        serializer = UserSerializer(staff_users, many=True)
+        return Response(serializer.data)
 
 
 # ============= RBAC Views =============

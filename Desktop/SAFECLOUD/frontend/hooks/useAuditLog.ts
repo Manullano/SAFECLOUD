@@ -74,7 +74,7 @@ export const useAuditLog = () => {
         label: label,
       }));
     } catch (err) {
-      console.error('Error fetching action types:', err);
+      console.error('Error al obtener tipos de acciones:', err);
       return [];
     }
   }, []);

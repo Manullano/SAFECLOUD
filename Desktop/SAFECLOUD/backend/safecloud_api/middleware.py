@@ -102,3 +102,95 @@ class PermissionCheckMiddleware(MiddlewareMixin):
                 )
         
         return None
+
+
+class CustomSecurityMiddleware(MiddlewareMixin):
+    """
+    Custom middleware to add security headers and handle security concerns
+    """
+    import logging
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.logger = logging.getLogger('django.security')
+    
+    def process_response(self, request, response):
+        """Add security headers to response"""
+        
+        # Prevent Content-Type sniffing
+        response['X-Content-Type-Options'] = 'nosniff'
+        
+        # Enable XSS filter
+        response['X-XSS-Protection'] = '1; mode=block'
+        
+        # Prevent Clickjacking
+        response['X-Frame-Options'] = 'DENY'
+        
+        # Content Security Policy
+        response['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:;"
+        )
+        
+        # Referrer Policy
+        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        
+        # Feature Policy
+        response['Permissions-Policy'] = (
+            "geolocation=(), "
+            "microphone=(), "
+            "camera=(), "
+            "payment=()"
+        )
+        
+        # Prevent browsers from MIME-sniffing
+        response['X-Permitted-Cross-Domain-Policies'] = 'none'
+        
+        return response
+    
+    def process_request(self, request):
+        """Log suspicious requests"""
+        
+        # Log requests from non-standard ports or suspicious patterns
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        referer = request.META.get('HTTP_REFERER', '')
+        
+        # Log potential security issues
+        suspicious_patterns = ['<script', '../', '..\\', 'union select', 'drop table']
+        request_data = str(request.POST) + str(request.GET)
+        
+        for pattern in suspicious_patterns:
+            if pattern.lower() in request_data.lower():
+                self.logger.warning(
+                    f"Suspicious request pattern detected: {pattern}",
+                    extra={
+                        'path': request.path,
+                        'method': request.method,
+                        'user_agent': user_agent,
+                        'referer': referer,
+                    }
+                )
+        
+        return None
+
+
+class AuditMiddleware(MiddlewareMixin):
+    """
+    Middleware to capture device_id from request headers
+    Used by SIGRA for tracking known devices across sessions
+    """
+    
+    def process_request(self, request):
+        """Capture device_id from X-Device-ID header"""
+        device_id = request.META.get('HTTP_X_DEVICE_ID', None)
+        
+        if device_id:
+            request.device_id = device_id
+        else:
+            request.device_id = None
+        
+        return None
+

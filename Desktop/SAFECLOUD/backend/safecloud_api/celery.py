@@ -12,7 +12,7 @@ app.autodiscover_tasks()
 def debug_task(self):
     print(f'Request: {self.request!r}')
 
-# Periodic tasks
+# Tareas periódicas
 app.conf.beat_schedule = {
     'cleanup-old-notifications': {
         'task': 'safecloud_api.apps.notifications.tasks.cleanup_old_notifications',

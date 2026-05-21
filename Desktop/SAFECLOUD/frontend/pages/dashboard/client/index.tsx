@@ -465,7 +465,11 @@ const ClientUserDashboard = () => {
         <p className="text-sm text-blue-800">
           Si tienes dudas sobre tus proyectos, documentos o tickets, contacta a tu equipo de soporte.
         </p>
-        <Button variant="primary" className="mt-4">
+        <Button 
+          variant="primary" 
+          className="mt-4"
+          onClick={() => router.push('/dashboard/tickets')}
+        >
           📧 Crear Ticket de Soporte
         </Button>
       </div>

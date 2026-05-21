@@ -48,15 +48,21 @@ export const useAuthStore = create<AuthStore>()(
           }
 
           const data = await response.json();
+          console.log('[AUTH] Login response data:', data);
+          console.log('[AUTH] data.user.company:', data.user.company);
+          
           const user: User = {
             id: data.user.id,
             email: data.user.email,
             full_name: data.user.full_name,
             role: data.user.role,
-            company_id: data.user.company?.id || data.user.company_id,
+            company_id: data.user.company || data.user.company_id,
             is_active: data.user.is_active,
             created_at: data.user.created_at,
           };
+          
+          console.log('[AUTH] Mapped user object:', user);
+          console.log('[AUTH] user.company_id:', user.company_id);
 
           set({
             user,

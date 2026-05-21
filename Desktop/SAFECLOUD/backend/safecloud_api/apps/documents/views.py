@@ -20,7 +20,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if user.role in ['STAFF_PM', 'STAFF_SUPPORT']:
             return Document.objects.filter(company=user.company)
         
-        # CLIENT users see only COMPANY visibility docs
+        # Los usuarios CLIENT solo ven documentos con visibilidad COMPANY
         return Document.objects.filter(company=user.company, visibility='COMPANY')
     
     def create(self, request, *args, **kwargs):
@@ -46,7 +46,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         doc = serializer.save()
         
-        # Create initial version if file is provided
+        # Crear versión inicial si se proporciona archivo
         if 'file' in request.FILES:
             file = request.FILES['file']
             DocumentVersion.objects.create(

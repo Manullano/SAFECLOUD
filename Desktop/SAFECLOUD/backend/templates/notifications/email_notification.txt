@@ -1,0 +1,35 @@
+===========================================
+🔒 SAFECLOUD NOTIFICATION
+===========================================
+
+TIPO: {{ type }}
+FECHA: {{ created_at|date:"d/m/Y H:i" }}
+
+---
+
+ASUNTO: {{ title }}
+
+{{ message }}
+
+{% if data %}
+DETALLES ADICIONALES:
+{% for key, value in data.items %}
+{% if key != "related_object_id" %}
+- {{ key|title }}: {{ value }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+---
+
+Ir al Dashboard: https://safecloud.com/dashboard
+
+---
+
+Recibiste este correo porque estás registrado en SAFECLOUD.
+
+- Ver en Portal: https://safecloud.com/notifications
+- Preferencias: https://safecloud.com/preferences
+- Ayuda: https://safecloud.com/help
+
+© {{ "now"|date:"Y" }} SAFECLOUD. Todos los derechos reservados.

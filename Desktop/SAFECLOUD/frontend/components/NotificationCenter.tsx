@@ -9,7 +9,7 @@ const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Cerrar dropdown cuando se hace clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -59,7 +59,7 @@ const NotificationCenter = () => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Notification Bell Button */}
+      {/* Botón de Campana de Notificación */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -86,7 +86,7 @@ const NotificationCenter = () => {
           </span>
         )}
 
-        {/* Connection Status */}
+        {/* Estado de Conexión */}
         <span
           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${
             isConnected ? 'bg-green-500' : 'bg-gray-400'
@@ -94,10 +94,10 @@ const NotificationCenter = () => {
         ></span>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Menú desplegable */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-50 border border-gray-200 max-h-96 flex flex-col">
-          {/* Header */}
+          {/* Encabezado */}
           <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">🔔 Notificaciones</h3>
@@ -112,7 +112,7 @@ const NotificationCenter = () => {
             </div>
           </div>
 
-          {/* Notifications List */}
+          {/* Lista de Notificaciones */}
           <div className="overflow-y-auto flex-1">
             {notifications.length > 0 ? (
               <div className="space-y-1 p-2">

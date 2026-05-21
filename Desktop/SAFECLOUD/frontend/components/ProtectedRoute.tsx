@@ -1,6 +1,6 @@
 /**
- * Protected Route Component
- * Guards routes based on user role and permissions
+ * Componente de Ruta Protegida
+ * Protege rutas basadas en el rol del usuario y permisos
  */
 import React, { ReactNode } from 'react';
 import { useRouter } from 'next/router';
@@ -30,7 +30,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <div className="text-center py-10">Cargando...</div>;
   }
 
-  // Check if user is authenticated
+  // Comprobar si el usuario está autenticado
   if (!user || !role) {
     return (
       fallback || (
@@ -48,7 +48,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Check required role
+  // Comprobar rol requerido
   if (requiredRole) {
     const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     if (!allowedRoles.includes(role)) {

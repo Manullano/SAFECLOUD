@@ -10,7 +10,7 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor to add token to requests
+// Interceptor para agregar token a las solicitudes
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().access_token;
   if (token) {
@@ -19,7 +19,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor to handle 401 responses
+// Interceptor para manejar respuestas 401
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {

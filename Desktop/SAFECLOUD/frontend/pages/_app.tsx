@@ -8,7 +8,7 @@ function App({ Component, pageProps }: AppProps) {
   const getCurrentUser = useAuth((state) => state.getCurrentUser);
 
   useEffect(() => {
-    // Initialize auth state on app load
+    // Inicializar estado de autenticación al cargar la app
     getCurrentUser();
   }, [getCurrentUser]);
 

@@ -171,6 +171,35 @@ class TicketViewSet(viewsets.ModelViewSet):
         
         return Response(TicketSerializer(ticket).data)
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete a ticket - only creator or STAFF can delete"""
+        instance = self.get_object()
+        
+        # Check if user is the creator, SUPERADMIN, or STAFF
+        is_creator = instance.created_by_id == request.user.id
+        is_staff = request.user.role in ['SUPERADMIN', 'STAFF_PM', 'STAFF_SUPPORT']
+        
+        if not (is_creator or is_staff):
+            return Response(
+                {'error': 'Solo el creador del ticket o staff pueden eliminarlo'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Log deletion
+        log_audit_event(
+            actor_user=request.user,
+            action='TICKET_DELETED',
+            company=request.user.company if request.user.company else instance.company,
+            entity='TICKET',
+            entity_id=str(instance.id),
+            ip=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT'),
+            data={'ticket_title': instance.title}
+        )
+        
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     """ViewSet for general comment CRUD operations"""

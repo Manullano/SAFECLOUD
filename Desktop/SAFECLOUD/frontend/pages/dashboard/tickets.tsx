@@ -14,8 +14,10 @@ const TicketsPage = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingData, setEditingData] = useState({ title: '', description: '', priority: 'MEDIA', status: 'ABIERTO' });
-  const [formData, setFormData] = useState({ title: '', description: '', priority: 'MEDIA' });
+  const [editingData, setEditingData] = useState({ title: '', description: '', priority: 'MEDIUM', status: 'OPEN' });
+  const [formData, setFormData] = useState({ title: '', description: '', priority: 'MEDIUM', assigned_to: '' });
+  const [staffUsers, setStaffUsers] = useState<any[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user || !access_token) return;
@@ -45,6 +47,49 @@ const TicketsPage = () => {
     }
   };
 
+  const fetchStaffUsers = async () => {
+    try {
+      setStaffLoading(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const url = `${apiUrl}/companies/users/staff/`;
+      
+      console.log(`[DEBUG] Obteniendo usuarios STAFF desde: ${url}`);
+      console.log(`[DEBUG] Autorización: Bearer ${access_token?.substring(0, 20)}...`);
+      
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log(`[DEBUG] Response status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[DEBUG] Response data:`, data);
+        
+        const staff = Array.isArray(data) ? data : Array.isArray(data.results) ? data.results : [];
+        console.log(`[DEBUG] Parsed staff users (${staff.length}):`, staff);
+        
+        if (staff.length === 0) {
+          console.warn('[WARN] No staff users found!');
+        }
+        
+        setStaffUsers(staff);
+      } else {
+        const errorData = await response.json();
+        console.error(`[ERROR] Status ${response.status}:`, errorData);
+        setStaffUsers([]);
+      }
+    } catch (err) {
+      console.error('[ERROR] fetchStaffUsers exception:', err);
+      setStaffUsers([]);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
   const handleCreateTicket = async () => {
     if (!formData.title.trim()) return;
 
@@ -61,20 +106,26 @@ const TicketsPage = () => {
           title: formData.title,
           description: formData.description,
           priority: formData.priority,
-          status: 'ABIERTO',
+          status: 'OPEN',
+          company_id: user?.company_id,
+          assigned_to: formData.assigned_to || null,
         }),
       });
 
       if (response.ok) {
-        setFormData({ title: '', description: '', priority: 'MEDIA' });
+        setFormData({ title: '', description: '', priority: 'MEDIUM', assigned_to: '' });
         setShowForm(false);
         fetchTickets();
         alert('✅ Ticket creado exitosamente');
       } else {
-        alert('Error al crear el ticket');
+        const errorData = await response.json();
+        const errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+        console.error('Error creating ticket:', errorData);
+        alert(`❌ Error al crear el ticket: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Error creating ticket:', error);
+      alert(`❌ Error al crear el ticket: ${error}`);
     }
   };
 
@@ -98,7 +149,7 @@ const TicketsPage = () => {
 
       if (response.ok) {
         setEditingId(null);
-        setEditingData({ title: '', description: '', priority: 'MEDIA', status: 'ABIERTO' });
+        setEditingData({ title: '', description: '', priority: 'MEDIUM', status: 'OPEN' });
         fetchTickets();
         alert('✅ Ticket actualizado exitosamente');
       } else {
@@ -128,24 +179,53 @@ const TicketsPage = () => {
         fetchTickets();
         alert('✅ Ticket eliminado exitosamente');
       } else {
-        alert('Error al eliminar el ticket');
+        const errorData = await response.json();
+        const errorMessage = errorData.error || errorData.detail || 'Error al eliminar el ticket';
+        alert(`❌ ${errorMessage}`);
       }
     } catch (error) {
       console.error('Error deleting ticket:', error);
+      alert(`❌ Error al eliminar el ticket: ${error}`);
     }
+  };
+
+  const isTicketCreator = (ticket: any) => {
+    return ticket.created_by === user?.id || ticket.created_by?.id === user?.id;
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'ALTA':
+      case 'HIGH':
+      case 'CRITICAL':
         return 'bg-red-100 text-red-800';
-      case 'MEDIA':
+      case 'MEDIUM':
         return 'bg-yellow-100 text-yellow-800';
-      case 'BAJA':
+      case 'LOW':
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    const priorityMap: { [key: string]: string } = {
+      'LOW': 'Baja',
+      'MEDIUM': 'Media',
+      'HIGH': 'Alta',
+      'CRITICAL': 'Crítica',
+    };
+    return priorityMap[priority] || priority;
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'OPEN': 'Abierto',
+      'IN_PROGRESS': 'En Progreso',
+      'WAITING_CUSTOMER': 'Esperando Cliente',
+      'RESOLVED': 'Resuelto',
+      'CLOSED': 'Cerrado',
+    };
+    return statusMap[status] || status;
   };
 
   if (authLoading || loading) {
@@ -172,7 +252,13 @@ const TicketsPage = () => {
           {canCreate('TICKETS') && (
             <Button
               variant="primary"
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => {
+                setShowForm(!showForm);
+                if (!showForm) {
+                  // Cargar usuarios STAFF cuando se abre el formulario
+                  fetchStaffUsers();
+                }
+              }}
             >
               + Nuevo Ticket
             </Button>
@@ -184,6 +270,25 @@ const TicketsPage = () => {
       {showForm && (
         <Card className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Crear Nuevo Ticket</h2>
+          
+          {/* DEBUG INFO */}
+          <div className="mb-4 p-3 bg-gray-100 rounded text-xs text-gray-600 border border-gray-300">
+            <div>🔍 DEBUG: staffUsers.length = {staffUsers.length}</div>
+            <div>🔍 DEBUG: staffLoading = {staffLoading ? 'true' : 'false'}</div>
+            <div>🔍 DEBUG: user?.id = {user?.id}</div>
+            <div>🔍 DEBUG: user?.company_id = {user?.company_id}</div>
+            {staffUsers.length > 0 && (
+              <div className="mt-2">
+                ✅ Staff cargados:
+                <ul className="ml-4">
+                  {staffUsers.map((s: any) => (
+                    <li key={s.id}>{s.full_name} ({s.role})</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          
           <div className="space-y-4">
             <input
               type="text"
@@ -204,9 +309,31 @@ const TicketsPage = () => {
               value={formData.priority}
               onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
             >
-              <option value="BAJA">Baja</option>
-              <option value="MEDIA">Media</option>
-              <option value="ALTA">Alta</option>
+              <option value="LOW">Baja</option>
+              <option value="MEDIUM">Media</option>
+              <option value="HIGH">Alta</option>
+              <option value="CRITICAL">Crítica</option>
+            </select>
+            <select
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500"
+              value={formData.assigned_to}
+              onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+              disabled={staffLoading}
+            >
+              {staffLoading ? (
+                <option>Cargando usuarios...</option>
+              ) : staffUsers && staffUsers.length > 0 ? (
+                <>
+                  <option value="">Asignar a (opcional)</option>
+                  {staffUsers.map((staff: any) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.full_name} ({staff.role === 'STAFF_PM' ? 'PM' : 'Soporte'})
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option>No hay usuarios disponibles</option>
+              )}
             </select>
             <div className="flex gap-2">
               <Button variant="primary" onClick={handleCreateTicket}>
@@ -216,7 +343,7 @@ const TicketsPage = () => {
                 variant="secondary"
                 onClick={() => {
                   setShowForm(false);
-                  setFormData({ title: '', description: '', priority: 'MEDIA' });
+                  setFormData({ title: '', description: '', priority: 'MEDIUM', assigned_to: '' });
                 }}
               >
                 Cancelar
@@ -253,18 +380,21 @@ const TicketsPage = () => {
                       onChange={(e) => setEditingData({ ...editingData, priority: e.target.value })}
                       className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                     >
-                      <option value="BAJA">Prioridad Baja</option>
-                      <option value="MEDIA">Prioridad Media</option>
-                      <option value="ALTA">Prioridad Alta</option>
+                      <option value="LOW">Prioridad Baja</option>
+                      <option value="MEDIUM">Prioridad Media</option>
+                      <option value="HIGH">Prioridad Alta</option>
+                      <option value="CRITICAL">Prioridad Crítica</option>
                     </select>
                     <select
                       value={editingData.status}
                       onChange={(e) => setEditingData({ ...editingData, status: e.target.value })}
                       className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
                     >
-                      <option value="ABIERTO">Abierto</option>
-                      <option value="EN_PROGRESO">En Progreso</option>
-                      <option value="CERRADO">Cerrado</option>
+                      <option value="OPEN">Abierto</option>
+                      <option value="IN_PROGRESS">En Progreso</option>
+                      <option value="WAITING_CUSTOMER">Esperando Cliente</option>
+                      <option value="RESOLVED">Resuelto</option>
+                      <option value="CLOSED">Cerrado</option>
                     </select>
                   </div>
                   <div className="flex gap-2">
@@ -280,7 +410,7 @@ const TicketsPage = () => {
                       className="flex-1 text-sm"
                       onClick={() => {
                         setEditingId(null);
-                        setEditingData({ title: '', description: '', priority: 'MEDIA', status: 'ABIERTO' });
+                        setEditingData({ title: '', description: '', priority: 'MEDIUM', status: 'OPEN' });
                       }}
                     >
                       ✕ Cancelar
@@ -295,17 +425,24 @@ const TicketsPage = () => {
                       <p className="text-gray-500 text-sm mt-1">{ticket.description}</p>
                       <div className="mt-4 flex gap-2">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(ticket.priority)}`}>
-                          {ticket.priority}
+                          {getPriorityLabel(ticket.priority)}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          ticket.status === 'ABIERTO'
+                          ticket.status === 'OPEN'
                             ? 'bg-green-100 text-green-800'
-                            : ticket.status === 'EN_PROGRESO'
+                            : ticket.status === 'IN_PROGRESS'
                             ? 'bg-blue-100 text-blue-800'
+                            : ticket.status === 'RESOLVED'
+                            ? 'bg-purple-100 text-purple-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {ticket.status}
+                          {getStatusLabel(ticket.status)}
                         </span>
+                        {ticket.assigned_user && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            👤 {ticket.assigned_user.full_name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -327,7 +464,7 @@ const TicketsPage = () => {
                         ✏️ Editar
                       </Button>
                     )}
-                    {canEdit('TICKETS') && (
+                    {isTicketCreator(ticket) && (
                       <Button
                         variant="secondary"
                         className="flex-1 text-sm bg-red-100 text-red-700 hover:bg-red-200"
@@ -342,11 +479,20 @@ const TicketsPage = () => {
             </Card>
           ))
         ) : (
-          <div className="col-span-full text-center py-12">
+          <div className="col-span-full text-center py-16">
             <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m7 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-gray-500">No hay tickets disponibles.</p>
+            <p className="text-gray-500 text-lg mb-4">No hay tickets disponibles.</p>
+            <p className="text-gray-400 text-sm mb-6">Crea tu primer ticket para solicitar asistencia técnica.</p>
+            {canCreate('TICKETS') && (
+              <Button
+                variant="primary"
+                onClick={() => setShowForm(true)}
+              >
+                🎫 Crear Mi Primer Ticket
+              </Button>
+            )}
           </div>
         )}
       </div>
